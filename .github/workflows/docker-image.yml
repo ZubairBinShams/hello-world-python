@@ -19,6 +19,7 @@ jobs:
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Login to ACR
         run: az acr login --name testingACRHello
 
@@ -34,18 +35,14 @@ jobs:
 
       - name: Build Docker image
         run: |
-          FULL_TAG=${{ secrets.ACR_NAME }}.azurecr.io/${{ secrets.IMAGE_NAME }}:$IMAGE_TAG
+          FULL_TAG=testingacrhello.azurecr.io/myapp:$IMAGE_TAG
+          echo "FULL_TAG=$FULL_TAG" >> $GITHUB_ENV
           docker build -t $FULL_TAG .
-
-      - name: Login to ACR
-        run: |
-          az acr login --name ${{ secrets.ACR_NAME }}
 
       - name: Push Docker image to ACR
         run: |
-          FULL_TAG=${{ secrets.ACR_NAME }}.azurecr.io/${{ secrets.IMAGE_NAME }}:$IMAGE_TAG
           docker push $FULL_TAG
 
       - name: Show pushed image
         run: |
-          echo "Pushed image: ${{ secrets.ACR_NAME }}.azurecr.io/${{ secrets.IMAGE_NAME }}:$IMAGE_TAG"
+          echo "Pushed image: $FULL_TAG"
