@@ -29,19 +29,16 @@ jobs:
       - name: Set IMAGE_TAG
         id: settag
         run: |
-          # Use GITHUB_REF_NAME to set the tag based on the branch name
           if [[ "${GITHUB_REF_NAME}" == "dev" ]]; then
-            TAG=dev
+          TAG=dev
           elif [[ "${GITHUB_REF_NAME}" == "staging" ]]; then
-            TAG=staging
+          TAG=staging
           else
-            TAG=prod
+          TAG=prod
           fi
-          # Set as an environment variable for subsequent steps in this job
-          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
-          # Set as an output for subsequent jobs (like 'deploy')
-          echo "IMAGE_TAG=$TAG" >> $GITHUB_OUTPUT
 
+          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$TAG" >> $GITHUB_OUTPUT
       - name: Build Docker image
         # IMAGE_TAG is available here via $GITHUB_ENV
         run: docker build -t testingacrhello.azurecr.io/myapp:${IMAGE_TAG} .
