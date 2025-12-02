@@ -13,4 +13,4 @@ COPY ./src ./src
 EXPOSE 9000
 
 # Use gunicorn in production
-CMD ["gunicorn", "--bind", "0.0.0.0:9000", "src.hello:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:1000", "src.hello:app"]
