@@ -67,12 +67,19 @@ jobs:
         run: |
           # Get the image tag from the output of the 'build' job
           TAG="${{ needs.build.outputs.IMAGE_TAG }}"
-
+          
           # Execute commands on the remote VM via SSH using a here document (<<-'EOF').
           # The hyphen ('-') allows the shell to ignore the leading indentation, which is necessary for YAML syntax.
           ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} <<-'EOF'
-          docker login testingacrhello.azurecr.io -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
-          docker pull testingacrhello.azurecr.io/myapp:${TAG}
+          # FIX: Use explicit flags with quoting for all secrets, 
+          # ensuring the password is piped securely via STDIN, 
+          # which should fix the "requires at most 1 argument" error.
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login testingacrhello.azurecr.io --username "${{ secrets.ACR_USERNAME }}" --password-stdin
+          
+          # FIX: The "invalid reference format" error happens if $TAG is empty or contains whitespace.
+          # We ensure $TAG is quoted when used in image pull/run commands.
+          # Note: The $TAG expansion happens on the remote machine.
+          docker pull testingacrhello.azurecr.io/myapp:"${TAG}"
           docker rm -f myapp || true
-          docker run -d --name myapp --restart unless-stopped -p 9000:9000 testingacrhello.azurecr.io/myapp:${TAG}
+          docker run -d --name myapp --restart unless-stopped -p 9000:9000 testingacrhello.azurecr.io/myapp:"${TAG}"
           EOF
