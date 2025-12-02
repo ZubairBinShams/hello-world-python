@@ -62,7 +62,7 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Deploy to Azure VM
+            - name: Deploy to Azure VM
         run: |
           TAG=${{ needs.build.outputs.IMAGE_TAG }}
 
