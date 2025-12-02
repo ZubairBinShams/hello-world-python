@@ -1,4 +1,4 @@
-name: Build and Push to Azure ACR
+name: Build, Push to ACR & Deploy to VM
 
 on:
   push:
@@ -15,14 +15,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # Login to Azure (uses AZURE_CREDENTIALS secret)
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # Login to Azure Container Registry
       - name: Login to ACR
         run: az acr login --name testingACRHello
 
+      # Set image tag based on branch
       - name: Set IMAGE_TAG based on branch
         run: |
           if [[ "${GITHUB_REF_NAME}" == "dev" ]]; then
@@ -33,16 +36,49 @@ jobs:
             echo "IMAGE_TAG=prod" >> $GITHUB_ENV
           fi
 
+      # Build image
       - name: Build Docker image
         run: |
-          FULL_TAG=testingacrhello.azurecr.io/myapp:$IMAGE_TAG
+          FULL_TAG=testingacrhello.azurecr.io/myapp:${IMAGE_TAG}
           echo "FULL_TAG=$FULL_TAG" >> $GITHUB_ENV
           docker build -t $FULL_TAG .
 
+      # Push image
       - name: Push Docker image to ACR
-        run: |
-          docker push $FULL_TAG
+        run: docker push $FULL_TAG
 
-      - name: Show pushed image
+
+  deploy-to-vm:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # SSH agent to load private key
+      - name: Setup SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # Deploy to VM
+      - name: Deploy on Azure VM
         run: |
-          echo "Pushed image: $FULL_TAG"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
+
+          echo "🔐 Logging into ACR"
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login testingacrhello.azurecr.io -u ${{ secrets.ACR_USERNAME }} --password-stdin
+
+          echo "📥 Pulling new image"
+          docker pull testingacrhello.azurecr.io/myapp:${IMAGE_TAG}
+
+          echo "🛑 Stopping old container"
+          docker rm -f myapp || true
+
+          echo "🚀 Starting new container"
+          docker run -d --name myapp --restart unless-stopped -p 9000:9000 testingacrhello.azurecr.io/myapp:${IMAGE_TAG}
+
+          echo "✅ Deployment complete"
+
+          EOF
