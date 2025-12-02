@@ -8,6 +8,7 @@ on:
       - prod
 
 jobs:
+
   build:
     runs-on: ubuntu-latest
 
@@ -41,12 +42,10 @@ jobs:
           echo "IMAGE_TAG=$TAG" >> $GITHUB_OUTPUT
 
       - name: Build Docker image
-        run: |
-          docker build -t testingacrhello.azurecr.io/myapp:${IMAGE_TAG} .
+        run: docker build -t testingacrhello.azurecr.io/myapp:${IMAGE_TAG} .
 
       - name: Push Docker image
-        run: |
-          docker push testingacrhello.azurecr.io/myapp:${IMAGE_TAG}
+        run: docker push testingacrhello.azurecr.io/myapp:${IMAGE_TAG}
 
 
   deploy:
@@ -62,7 +61,7 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-            - name: Deploy to Azure VM
+      - name: Deploy to Azure VM
         run: |
           TAG=${{ needs.build.outputs.IMAGE_TAG }}
 
