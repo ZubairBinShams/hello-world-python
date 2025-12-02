@@ -1,15 +1,16 @@
-# Use official lightweight Python image
 FROM python:3.11-slim
 
-# Set working directory inside container
 WORKDIR /app
 
-# Copy project files
-COPY ./src ./src
+# Copy requirements first
 COPY requirements.txt .
 
-# Install dependencies (none needed, but this keeps it standard)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Set default command
-CMD ["python", "src/hello.py"]
+# Copy the src folder
+COPY ./src ./src
+
+EXPOSE 9000
+
+# Run with Gunicorn (recommended)
+CMD ["gunicorn", "--bind", "0.0.0.0:9000", "src.hello:app"]
