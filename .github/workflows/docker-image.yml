@@ -1,4 +1,4 @@
-name: Build, Push to ACR & Deploy to VM
+name: Build, Push and Deploy
 
 on:
   push:
@@ -11,7 +11,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # expose job output from step 'settag'
     outputs:
       IMAGE_TAG: ${{ steps.settag.outputs.IMAGE_TAG }}
 
@@ -38,7 +37,6 @@ jobs:
             TAG=prod
           fi
 
-          # export for later steps and as step output
           echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
           echo "IMAGE_TAG=$TAG" >> $GITHUB_OUTPUT
 
