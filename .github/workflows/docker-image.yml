@@ -37,7 +37,6 @@ jobs:
             TAG=prod
           fi
 
-          # set env and step output
           echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
           echo "IMAGE_TAG=$TAG" >> $GITHUB_OUTPUT
 
@@ -62,15 +61,11 @@ jobs:
 
       - name: Deploy to Azure VM
         run: |
-          TAG=${{ needs.build.outputs.IMAGE_TAG }}
+          TAG="${{ needs.build.outputs.IMAGE_TAG }}"
 
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} <<'EOF'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} <<EOF
 docker login testingacrhello.azurecr.io -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
-
 docker pull testingacrhello.azurecr.io/myapp:${TAG}
-
 docker rm -f myapp || true
-
-docker run -d --name myapp --restart unless-stopped -p 9000:9000 \
-  testingacrhello.azurecr.io/myapp:${TAG}
+docker run -d --name myapp --restart unless-stopped -p 9000:9000 testingacrhello.azurecr.io/myapp:${TAG}
 EOF
