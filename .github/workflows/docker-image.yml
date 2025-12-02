@@ -63,17 +63,16 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      # FIX: The 'run' command was incorrectly indented. 
-      # It must be at the same level as 'name' and 'uses' of the step.
       - name: Deploy to Azure VM
         run: |
           # Get the image tag from the output of the 'build' job
           TAG="${{ needs.build.outputs.IMAGE_TAG }}"
 
-          # Execute commands on the remote VM via SSH (using the here document '<< EOF')
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << EOF
-docker login testingacrhello.azurecr.io -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
-docker pull testingacrhello.azurecr.io/myapp:${TAG}
-docker rm -f myapp || true
-docker run -d --name myapp --restart unless-stopped -p 9000:9000 testingacrhello.azurecr.io/myapp:${TAG}
-EOF
+          # Execute commands on the remote VM via SSH using a here document (<<-'EOF').
+          # The hyphen ('-') allows the shell to ignore the leading indentation, which is necessary for YAML syntax.
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} <<-'EOF'
+          docker login testingacrhello.azurecr.io -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
+          docker pull testingacrhello.azurecr.io/myapp:${TAG}
+          docker rm -f myapp || true
+          docker run -d --name myapp --restart unless-stopped -p 9000:9000 testingacrhello.azurecr.io/myapp:${TAG}
+          EOF
