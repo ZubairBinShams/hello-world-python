@@ -5,7 +5,7 @@ on:
     branches:
       - dev
       - staging
-  
+      - prod
 
 jobs:
   build-and-push:
