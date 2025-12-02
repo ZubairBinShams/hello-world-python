@@ -63,22 +63,15 @@ jobs:
 
       - name: Deploy on Azure VM
         run: |
-          TAG=${{ needs.build-and-push.outputs.IMAGE_TAG }}
+          TAG=${{ needs.build.outputs.IMAGE_TAG }}
 
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} <<EOF
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
+docker login testingacrhello.azurecr.io -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
 
-          echo "🔐 Logging into ACR..."
-          echo "${{ secrets.ACR_PASSWORD }}" | docker login testingacrhello.azurecr.io -u ${{ secrets.ACR_USERNAME }} --password-stdin
+docker pull testingacrhello.azurecr.io/myapp:${TAG}
 
-          echo "📥 Pulling latest image..."
-          docker pull testingacrhello.azurecr.io/myapp:${TAG}
+docker rm -f myapp || true
 
-          echo "🛑 Stopping old container..."
-          docker rm -f myapp || true
-
-          echo "🚀 Running new container..."
-          docker run -d --name myapp --restart unless-stopped -p 9000:9000 \
-            testingacrhello.azurecr.io/myapp:${TAG}
-
-          echo "✅ Deployment finished!"
+docker run -d --name myapp --restart unless-stopped -p 9000:9000 \
+  testingacrhello.azurecr.io/myapp:${TAG}
 EOF
