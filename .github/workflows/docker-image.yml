@@ -1,77 +1,76 @@
-name: Build, Push and Deploy
+name: Build, Push to ACR & Deploy to VM
 
 on:
   push:
-    branches:
-      - dev
-      - staging
-      - prod
+    branches: [dev, prod]
 
 jobs:
+
   build:
     runs-on: ubuntu-latest
-
     outputs:
-      IMAGE_TAG: ${{ steps.settag.outputs.IMAGE_TAG }}
+      IMAGE_TAG: ${{ steps.settag.outputs.TAG }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Login to ACR
-        run: az acr login --name testingACRHello
-
-      - name: Set IMAGE_TAG
+      - name: Set Image Tag
         id: settag
         run: |
           if [[ "${GITHUB_REF_NAME}" == "dev" ]]; then
-          TAG=dev
-          elif [[ "${GITHUB_REF_NAME}" == "staging" ]]; then
-          TAG=staging
+            TAG=dev
           else
-          TAG=prod
+            TAG=prod
           fi
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
 
-          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
-          echo "IMAGE_TAG=$TAG" >> $GITHUB_OUTPUT
-      - name: Build Docker image
-        # IMAGE_TAG is available here via $GITHUB_ENV
-        run: docker build -t testingacrhello.azurecr.io/myapp:${IMAGE_TAG} .
+      - name: Login to ACR
+        run: az acr login --name testingacrhello
 
-      - name: Push Docker image
-        run: docker push testingacrhello.azurecr.io/myapp:${IMAGE_TAG}
+      - name: Build Image
+        run: |
+          docker build -t testingacrhello.azurecr.io/myapp:${{ steps.settag.outputs.TAG }} .
+
+      - name: Push Image
+        run: |
+          docker push testingacrhello.azurecr.io/myapp:${{ steps.settag.outputs.TAG }}
 
   deploy:
-    # This job runs only after the 'build' job successfully completes
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Setup SSH agent
+      - name: Setup SSH Agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      
-      - name: Deploy to VM
+      - name: Deploy on VM
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} <<EOF
-          echo "Connected to VM"
+          TAG=${{ needs.build.outputs.IMAGE_TAG }}
 
-          echo "ACR login..."
-          echo "${{ secrets.ACR_PASSWORD }}" | docker login testingacrhello.azurecr.io -u ${{ secrets.ACR_USERNAME }} --password-stdin
-      
-          docker pull testingacrhello.azurecr.io/myapp:${IMAGE_TAG}
+          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.VM_HOST }} <<EOF
+
+          echo "Logging into ACR..."
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login testingacrhello.azurecr.io \
+            -u ${{ secrets.ACR_USERNAME }} --password-stdin
+
+          echo "Pulling image..."
+          docker pull testingacrhello.azurecr.io/myapp:$TAG
+
+          echo "Stopping old container..."
           docker rm -f myapp || true
-          docker run -d --name myapp -p 9000:9000 testingacrhello.azurecr.io/myapp:${IMAGE_TAG}
 
-          echo "Done"
+          echo "Starting new container..."
+          docker run -d --name myapp --restart unless-stopped -p 9000:9000 \
+            testingacrhello.azurecr.io/myapp:$TAG
+
+          docker ps
           EOF
